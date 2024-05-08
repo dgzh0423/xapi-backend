@@ -1,0 +1,9 @@
+server:
+  port: 8123
+  servlet:
+    context-path: /api
+#这里写死是为了测试用的，正常流程是在网关里校验ak，sk（已实现）
+#xapi:
+#  client:
+#    access-key: 12345678
+#    secret-key: secretKey

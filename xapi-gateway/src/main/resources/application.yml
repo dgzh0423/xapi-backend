@@ -1,0 +1,56 @@
+server:
+  port: 8090
+spring:
+  cloud:
+    inetutils:
+      ignored-interfaces: 'VMware Virtual Ethernet Adapter for VMnet1,VMware Virtual Ethernet Adapter for VMnet8'
+    gateway:
+      routes:
+        - id: api_route
+          uri: http://localhost:8123
+          predicates:
+            - Path=/api/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                # 往令牌桶中填充令牌的平均速率，即每秒往桶中填充令牌的数量。该参数决定了平均每秒能够处理多少请求。
+                redis-rate-limiter.replenishRate: 5
+                # 令牌桶的容量。该参数决定了一秒内能够处理的最大请求数量
+                redis-rate-limiter.burstCapacity: 10
+                # 每个请求消耗的令牌数
+                redis-rate-limiter.requestedTokens: 1
+                # 用于限流的键的解析器的 Bean 对象的名字。它使用 SpEL表达式 #{@beanName}从 Spring 容器中获取 Bean 对象。
+                key-resolver: "#{@apiKeyResolver}"
+
+  # 限流一定要配置 redis 的连接
+  redis:
+    host: 127.0.0.1
+    port: 6379
+    database: 0
+    # 需要手动配置连接池，连接池才会生效
+    # spring默认使用的是lettuce客户端
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+        max-wait: 100ms
+
+# Spring Cloud Gateway会输出最详细的日志信息 dev环境下不要开
+logging:
+  level:
+    org:
+      springframework:
+        cloud:
+          gateway: trace
+
+# Nacos配置
+dubbo:
+  application:
+    name: dubbo-springboot-demo-provider
+  protocol:
+    name: dubbo
+    port: 22223
+  registry:
+    id: nacos-registry
+    address: nacos://localhost:8848
