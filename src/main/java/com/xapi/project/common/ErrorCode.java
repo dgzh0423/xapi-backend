@@ -1,9 +1,13 @@
 package com.xapi.project.common;
 
+import lombok.Getter;
+
 /**
  * 错误码
  *
+ * @author 15304
  */
+@Getter
 public enum ErrorCode {
 
     SUCCESS(0, "ok"),
@@ -28,14 +32,6 @@ public enum ErrorCode {
     ErrorCode(int code, String message) {
         this.code = code;
         this.message = message;
-    }
-
-    public int getCode() {
-        return code;
-    }
-
-    public String getMessage() {
-        return message;
     }
 
 }
