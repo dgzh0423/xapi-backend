@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 /**
  * 权限校验 AOP
  *
+ * @author 15304
  */
 @Aspect
 @Component
@@ -35,10 +36,6 @@ public class AuthInterceptor {
 
     /**
      * 执行拦截
-     *
-     * @param joinPoint
-     * @param authCheck
-     * @return
      */
     @Around("@annotation(authCheck)")
     public Object doInterceptor(ProceedingJoinPoint joinPoint, AuthCheck authCheck) throws Throwable {
