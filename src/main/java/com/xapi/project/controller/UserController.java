@@ -7,18 +7,26 @@ import com.xapi.project.common.BaseResponse;
 import com.xapi.project.common.DeleteRequest;
 import com.xapi.project.common.ErrorCode;
 import com.xapi.project.common.ResultUtils;
+import com.xapi.project.constant.FileConstant;
+import com.xapi.project.enums.FileUploadBizEnum;
 import com.xapi.project.exception.BusinessException;
+import com.xapi.project.manager.CosManager;
+import com.xapi.project.model.dto.file.UploadFileRequest;
 import com.xapi.project.model.dto.user.*;
 import com.xapi.project.model.vo.UserDevKeyVO;
 import com.xapi.project.model.vo.UserVO;
 import com.xapi.project.service.UserService;
 import com.xapi.xapicommon.model.entity.User;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.io.File;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -29,10 +37,14 @@ import java.util.stream.Collectors;
  */
 @RestController
 @RequestMapping("/user")
+@Slf4j
 public class UserController {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private CosManager cosManager;
 
     // region 登录相关
 
@@ -259,5 +271,61 @@ public class UserController {
     public BaseResponse<UserDevKeyVO> genKey(HttpServletRequest request) {
         UserDevKeyVO userDevKeyVO = userService.genkey(request);
         return ResultUtils.success(userDevKeyVO);
+    }
+
+    /**
+     * 文件上传
+     *
+     * @param multipartFile
+     * @param uploadFileRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/avatar/upload")
+    public BaseResponse<String> uploadFile(@RequestPart("file") MultipartFile multipartFile,
+                                           UploadFileRequest uploadFileRequest, HttpServletRequest request) {
+        // 用户要先登录才能调用上传功能
+        User loginUser = userService.getLoginUser(request);
+        if (loginUser == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
+        String biz = uploadFileRequest.getBiz();
+        FileUploadBizEnum fileUploadBizEnum = FileUploadBizEnum.getEnumByValue(biz);
+        if (fileUploadBizEnum == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        // 校验用户头像
+        userService.validAvatar(multipartFile, fileUploadBizEnum);
+        // 文件目录：根据业务、用户来划分
+        String uuid = RandomStringUtils.randomAlphanumeric(8);
+        Long userId = loginUser.getId();
+        String filename = uuid + "-" + multipartFile.getOriginalFilename();
+        String filepath = String.format("/%s/%s/%s", fileUploadBizEnum.getValue(), userId, filename);
+        File file = null;
+        try {
+            // 上传文件
+            file = File.createTempFile(filepath, null);
+            multipartFile.transferTo(file);
+            cosManager.putObject(filepath, file);
+            // 返回头像的可访问地址
+            String url = FileConstant.COS_HOST + filepath;
+            // 保存用户的头像地址到数据库
+            boolean update = userService.saveAvatar(userId, url);
+            if (!update) {
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "用户头像更新失败");
+            }
+            return ResultUtils.success(url);
+        } catch (Exception e) {
+            log.error("user avatar upload error, filepath = {}", filepath, e);
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "用户头像上传失败");
+        } finally {
+            if (file != null) {
+                // 删除临时文件
+                boolean delete = file.delete();
+                if (!delete) {
+                    log.error("temp file delete error, filepath = {}", filepath);
+                }
+            }
+        }
     }
 }

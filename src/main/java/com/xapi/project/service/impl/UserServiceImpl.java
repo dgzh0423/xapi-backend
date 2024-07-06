@@ -1,5 +1,6 @@
 package com.xapi.project.service.impl;
 
+import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -7,6 +8,7 @@ import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xapi.project.common.ErrorCode;
 import com.xapi.project.constant.UserConstant;
+import com.xapi.project.enums.FileUploadBizEnum;
 import com.xapi.project.exception.BusinessException;
 import com.xapi.project.mapper.UserMapper;
 import com.xapi.project.model.vo.UserDevKeyVO;
@@ -16,15 +18,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
-
+import java.util.Arrays;
 
 /**
  * 用户服务实现类
- *
  * @author 15304
  */
 @Service
@@ -205,6 +207,42 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // todo 这里应该将用户的sk进行加密后再返回，而且只允许用户下载
         userDevKeyVO.setSecretKey(user.getSecretKey());
         return userDevKeyVO;
+    }
+
+    /**
+     * 校验用户头像
+     * @param multipartFile
+     * @param fileUploadBizEnum
+     */
+    @Override
+    public void validAvatar(MultipartFile multipartFile, FileUploadBizEnum fileUploadBizEnum) {
+        // 文件大小
+        long fileSize = multipartFile.getSize();
+        // 文件后缀
+        String fileSuffix = FileUtil.getSuffix(multipartFile.getOriginalFilename());
+        final long ONE_M = 1024 * 1024L;
+        if (FileUploadBizEnum.USER_AVATAR.equals(fileUploadBizEnum)) {
+            if (fileSize > ONE_M) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "文件大小不能超过 1M");
+            }
+            if (!Arrays.asList("jpeg", "jpg", "svg", "png", "webp").contains(fileSuffix)) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "文件类型错误");
+            }
+        }
+    }
+
+    /**
+     * 保存用户的头像地址到数据库
+     * @param userId
+     * @param url
+     * @return
+     */
+    @Override
+    public boolean saveAvatar(Long userId, String url) {
+        UpdateWrapper<User> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.eq("id", userId);
+        updateWrapper.set("userAvatar", url);
+        return this.update(updateWrapper);
     }
 
     /**

@@ -2,13 +2,16 @@ package com.xapi.project.service;
 
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.xapi.project.enums.FileUploadBizEnum;
 import com.xapi.project.model.vo.UserDevKeyVO;
 import com.xapi.xapicommon.model.entity.User;
+import org.springframework.web.multipart.MultipartFile;
+
 import javax.servlet.http.HttpServletRequest;
 
 /**
  * 用户服务
- *
+ * @author 15304
  */
 public interface UserService extends IService<User> {
 
@@ -69,4 +72,19 @@ public interface UserService extends IService<User> {
      * @return
      */
     UserDevKeyVO getkey(HttpServletRequest request);
+
+    /**
+     * 校验用户头像
+     * @param multipartFile
+     * @param fileUploadBizEnum
+     */
+    void validAvatar(MultipartFile multipartFile, FileUploadBizEnum fileUploadBizEnum);
+
+    /**
+     * 保存用户头像的访问地址
+     * @param userId
+     * @param url
+     * @return
+     */
+    boolean saveAvatar(Long userId, String url);
 }
