@@ -201,8 +201,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
         UserDevKeyVO userDevKeyVO = new UserDevKeyVO();
-        userDevKeyVO.setSecretKey(user.getSecretKey());
         userDevKeyVO.setAccessKey(user.getAccessKey());
+        // todo 这里应该将用户的sk进行加密后再返回，而且只允许用户下载
+        userDevKeyVO.setSecretKey(user.getSecretKey());
         return userDevKeyVO;
     }
 
