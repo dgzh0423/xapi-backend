@@ -1,5 +1,7 @@
 package com.xapi.project.controller;
 
+import cn.hutool.core.util.DesensitizedUtil;
+import com.alibaba.excel.EasyExcel;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.plugins.pagination.PageDTO;
@@ -26,7 +28,11 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.io.File;
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -250,31 +256,59 @@ public class UserController {
 
     // endregion
 
-
+    // region 拓展功能
     /**
-     * 用户查看自己的ak,sk
+     * 用户查看自己的ak,sk, sk是脱敏后的
+     *
      * @param request
      * @return
      */
     @GetMapping("/key")
     public BaseResponse<UserDevKeyVO> getKey(HttpServletRequest request) {
+        // 获取用户ak,sk, 目前每个用户只有一个sk
         UserDevKeyVO userDevKeyVO = userService.getkey(request);
+        // 对用户的sk进行脱敏后再返回，而且只允许用户通过下载的方式获取sk
+        userDevKeyVO.setSecretKey(DesensitizedUtil.password(userDevKeyVO.getSecretKey()));
         return ResultUtils.success(userDevKeyVO);
     }
 
     /**
+     * 用户下载自己的ak,sk
+     * 浏览器里直接请求即可 <a href="http://localhost:7529/api/user/key/download"/a>
+     * @param response
+     * @throws IOException
+     */
+    @GetMapping("/key/download")
+    public void download(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        // 获取用户ak,sk
+        UserDevKeyVO secretKey = userService.getkey(request);
+        List<UserDevKeyVO> userKeys = new ArrayList<>();
+        userKeys.add(secretKey);
+
+        // 这里注意 有同学反应使用swagger 会导致各种问题，请直接用浏览器或者用postman
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setCharacterEncoding("utf-8");
+        // 这里URLEncoder.encode可以防止中文乱码 当然和easyexcel没有关系
+        String fileName = URLEncoder.encode("SecretKey", "UTF-8");
+        response.setHeader("Content-disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
+
+        EasyExcel.write(response.getOutputStream(), UserDevKeyVO.class).sheet("keys").doWrite(userKeys);
+    }
+
+    /**
      * 用户申请新的ak,sk
+     *
      * @param request
      * @return
      */
-    @PostMapping("/gen/key")
+    @PostMapping("/key/generate")
     public BaseResponse<UserDevKeyVO> genKey(HttpServletRequest request) {
         UserDevKeyVO userDevKeyVO = userService.genkey(request);
         return ResultUtils.success(userDevKeyVO);
     }
 
     /**
-     * 文件上传
+     * 头像上传
      *
      * @param multipartFile
      * @param uploadFileRequest
@@ -328,4 +362,5 @@ public class UserController {
             }
         }
     }
+    // endregion
 }
